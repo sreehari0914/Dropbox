@@ -1,0 +1,36 @@
+const uploadPost = async (selectedFile: File) => {
+  // Check if already in the process of uploading or if user is not authenticated
+  if (loading) return;
+  if (!user) return;
+
+  // Set loading state to true, indicating the start of the upload process
+  setLoading(true);
+
+  // Add a document to the Firestore collection "users/userId/files"
+  const docRef = await addDoc(collection(db, "users", user.id, "files"), {
+    userId: user.id,
+    filename: selectedFile.name,
+    fullName: user.fullName,
+    profileImg: user.imageUrl,
+    timestamp: serverTimestamp(),
+    type: selectedFile.type,
+    size: selectedFile.size,
+  });
+
+  // Create a reference to the storage location for the uploaded file
+  const imageRef = ref(storage, `users/${user.id}/files/${docRef.id}`);
+  
+  // Upload the file to the specified storage location
+  uploadBytes(imageRef, selectedFile).then(async (snapshot) => {
+    // Once the upload is complete, get the download URL of the uploaded file
+    const downloadURL = await getDownloadURL(imageRef);
+
+    // Update the Firestore document with the download URL
+    await updateDoc(doc(db, "users", user.id, "files", docRef.id), {
+      downloadURL: downloadURL,
+    });
+  });
+
+  // Set loading state back to false, indicating the end of the upload process
+  setLoading(false);
+};
